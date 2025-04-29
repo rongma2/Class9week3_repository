@@ -1,0 +1,91 @@
+---
+title: "NYPD"
+author: "RM"
+date: "2025-04-29"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+### Instal libarary
+```{r instal libarary, echo =TRUE}
+library(tidyverse)
+library(lubridate)
+```
+### Step1: describe and import data
+
+This is an R Markdown document for the shooting project dataset in a reproducible manner.
+
+```{r imports the shooting project dataset, echo =TRUE}
+Shooting<- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+```
+
+### Step2: Summary my data and then tidy and transform data by changing "VIC_SEX" to factor, remove "Latitude" and "Longitude", and changing date types and show summary
+
+
+```{r Tidy and Transform data, echo =TRUE}
+
+summary(Shooting)
+
+Shooting <- Shooting %>%
+mutate(OCCUR_DATE=mdy(OCCUR_DATE))%>%
+select(-c(Latitude, Longitude))
+Shooting$VIC_SEX <- factor(Shooting$VIC_SEX)
+
+summary(Shooting)
+
+```
+
+### Step3:Add analysis and two visualizations: analyze the data by grouping by year and BORO 
+
+```{r analysis and visualization, echo =TRUE}
+Shooting_per_year <- Shooting %>%
+mutate(year = format(as.Date(OCCUR_DATE), format = "%Y")) %>%
+group_by(year) %>%
+count() %>%
+mutate(per_year = round((n/nrow(Shooting)*100),2))
+
+
+ggplot(data=Shooting_per_year, aes(x=year, y=n)) +
+geom_bar(stat='identity', color = "red", fill = "blue") +
+ggtitle("Total Shootings per Year") + xlab("Year") + ylab("Number of Shootings")
+
+Shooting_boro <- Shooting %>%
+group_by(BORO) %>%
+count() %>%
+mutate(per_boro = round((n/nrow(Shooting)*100),2))%>%
+arrange(n)
+
+ggplot(data=Shooting_boro, aes(x=reorder(BORO,(n)), y=n)) +
+geom_bar(stat='identity', color = "red", fill = "green") +
+ggtitle("Total Shootings per Borough") + xlab("Borough") + ylab("Number of Shootings")
+
+```
+
+### Step4: Add one model
+```{r model, echo =TRUE}
+
+test <- filter(Shooting, STATISTICAL_MURDER_FLAG=="true")
+
+
+Shooting_murder_boro <- test %>%
+group_by(BORO) %>%
+count() %>%
+mutate(per_murder_boro = round((n/nrow(test)*100),2))%>%
+arrange(n)
+
+
+total <- merge(Shooting_boro, Shooting_murder_boro, by="BORO")
+
+mod <- lm(per_boro~per_murder_boro, data=total)
+summary(mod)
+```
+### Step5: Identify any bias in the data and analysis
+
+There is potential bias on the area BORO of total shooting. The total population and area are unknown, we can not conclude specific BORO, such as Brooklyn is more dangers than others basing on the high total shooting number. To solve the bias, we might divide the total shooting number by population of each BORO. 
